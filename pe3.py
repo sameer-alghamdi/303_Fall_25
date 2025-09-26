@@ -1,91 +1,90 @@
-import string
+# pe3.py
+from __future__ import annotations
 import datetime
+import string
+from typing import List, Tuple
 
+ALPHABET: List[str] = list(string.ascii_lowercase)
+ALPHABET_LEN = len(ALPHABET)
+INDEX = {ch: i for i, ch in enumerate(ALPHABET)}
 
-def encode(text, shift):
-    alphabet = 'abcdefghijklmnopqrstuvwxyz'
-    shifted_alphabet = alphabet[shift:] + alphabet[:shift]
-    table = str.maketrans(alphabet + alphabet.upper(), shifted_alphabet + shifted_alphabet.lower())
-    encoded_text = text.translate(table)
-    return (None, encoded_text) 
+def _shift_char(ch: str, shift: int) -> str:
+    """Shift a single character in the lowercase English alphabet.
+    Non-letters are returned unchanged. Output is always lowercase."""
+    lo = ch.lower()
+    if lo in INDEX:
+        pos = (INDEX[lo] + shift) % ALPHABET_LEN
+        return ALPHABET[pos]
+    return ch
 
+def encode(input_text: str, shift: int) -> Tuple[List[str], str]:
+    """Return (alphabet_list, encoded_text) using Caesar shift."""
+    encoded = "".join(_shift_char(c, shift) for c in input_text)
+    return (ALPHABET.copy(), encoded)
 
-def decode(encoded_text, shift):
-   
-    lowercase_letters = list(string.ascii_lowercase)
-    decoded_text = ''
-    
-    for char in encoded_text:
-        if char.isalpha():
-            old_index = lowercase_letters.index(char.lower())
-            new_index = (old_index - shift) % len(lowercase_letters)
-            if char.islower():
-                decoded_text += lowercase_letters[new_index]
-            else:
-                decoded_text += lowercase_letters[new_index].upper()
-        else:
-            decoded_text += char
-            
-    return decoded_text
-
-
-
+def decode(input_text: str, shift: int) -> str:
+    """Return decoded text (inverse Caesar shift)."""
+    return "".join(_shift_char(c, -shift) for c in input_text)
 
 
 class BankAccount:
-    def __init__(self, name="Rainy", ID="1234", creation_date=None, balance=0):
+    """Basic bank account."""
+    def __init__(
+        self,
+        name: str = "Rainy",
+        ID: str | int = "1234",
+        creation_date: datetime.date | None = None,
+        balance: float = 0,
+    ) -> None:
         if creation_date is None:
             creation_date = datetime.date.today()
         if creation_date > datetime.date.today():
-            raise ValueError("date cannot be in the future.")
+            # Spec: must raise Exception (not a subclass)
+            raise Exception("creation_date cannot be in the future.")
         self.name = name
-        self.ID = ID
+        self.ID = str(ID)
         self.creation_date = creation_date
-        self.balance = balance
+        self.balance = float(balance)
 
+    def deposit(self, amount: float) -> None:
+        if amount < 0:
+            raise Exception("Negative deposit not allowed.")
+        self.balance += float(amount)
+        print(f"Balance after deposit: {self.balance}")
 
-    def deposit(self, amount):
-        if amount > 0:
-            self.balance += amount
-            print(f"Deposited ${amount}. New balance: ${self.balance}")
-        else:
-            print("Deposit amount must be positive. Transaction cancelled.")
+    def withdraw(self, amount: float) -> None:
+        if amount < 0:
+            raise Exception("Negative withdrawal not allowed.")
+        self.balance -= float(amount)
+        print(f"Balance after withdrawal: {self.balance}")
 
-
-    def withdraw(self, amount):
-        if amount > 0 and self.balance >= amount:
-            self.balance -= amount
-            print(f"Withdrew ${amount}. New balance: ${self.balance}")
-        else:
-            print("Invalid withdrawal amount or insufficient funds. Transaction cancelled.")
-
-
-    def view_balance(self):
-        print(f"Current balance: ${self.balance}")
-
-
+    def view_balance(self) -> float:
+        print(f"Current balance: {self.balance}")
+        return self.balance
 
 
 class SavingsAccount(BankAccount):
-    def withdraw(self, amount):
-        account_age_days = (datetime.date.today() - self.creation_date).days
-        if account_age_days < 180:
-            print("Account must be open for at least 180 days to withdraw.")
-        elif amount > self.balance:
-            print("Insufficient funds.")
-        elif amount <= 0:
-            print("Withdrawal amount must be positive.")
-        else:
-            self.balance -= amount
-            print(f"Withdrew ${amount}. New balance: ${self.balance}")
-
-
+    """Savings: no overdrafts; withdrawals only after 180 days."""
+    def withdraw(self, amount: float) -> None:
+        if amount < 0:
+            raise Exception("Negative withdrawal not allowed.")
+        days_open = (datetime.date.today() - self.creation_date).days
+        if days_open < 180:
+            raise Exception("Withdrawals allowed only after 180 days.")
+        if self.balance - float(amount) < 0:
+            raise Exception("Overdrafts are not permitted for SavingsAccount.")
+        self.balance -= float(amount)
+        print(f"Balance after withdrawal: {self.balance}")
 
 
 class CheckingAccount(BankAccount):
-    def withdraw(self, amount):
-        overdraft_fee = 30
-        if amount > self.balance:
-            self.balance -= (amount + overdraft_fee)
-        else:
-            self.balance -= amount
+    """Checking: overdrafts allowed, but each overdraft incurs a $30 fee."""
+    OVERDRAFT_FEE = 30.0
+
+    def withdraw(self, amount: float) -> None:
+        if amount < 0:
+            raise Exception("Negative withdrawal not allowed.")
+        self.balance -= float(amount)
+        if self.balance < 0:
+            self.balance -= self.OVERDRAFT_FEE
+        print(f"Balance after withdrawal: {self.balance}")
